@@ -1,0 +1,165 @@
+<button onclick="window.done = true;this.style.color = 'grey'; this.setAttribute('disabled','')" style="background:black;color:red;position:fixed;top:0;left:0;font-size:25px;">Stop / Finish</button>
+<canvas id='canvas'></canvas>
+<script src='tinygl.js'></script>
+<script src='imgui.js'></script>
+<script>
+var canvas = document.getElementById('canvas')
+    canvas.style.width = canvas.width = 640;
+    canvas.style.height = canvas.height = 480;
+var gl = canvas.getContext('experimental-tinygl')
+
+    window.done = false;
+
+  ImGui.CreateContext();
+  // ImGui.StyleColorsDark();
+  ImGui.StyleColorsClassic();      
+  const clear_color = new ImGui.ImVec4(0.45, 0.55, 0.60, 1.00);
+
+//RENDER IMGUI @Frame =================================
+    function draw() {   
+      ImGui.NewFrame();
+      ImGui.SetNextWindowPos(new ImGui.ImVec2(20, 20), ImGui.Cond.FirstUseEver);
+      ImGui.SetNextWindowSize(new ImGui.ImVec2(294, 140), ImGui.Cond.FirstUseEver);
+      ImGui.Begin("Debug");
+      /* static */ let buf = "Quick brown fox";
+      /* static */ let f = 0.6;
+      ImGui.TextColored(new ImGui.ImVec4(1.0,0.0,0.0,1.0), "error: ");
+      ImGui.SameLine();
+      ImGui.Text("Test here");
+      ImGui.Text(`Hello, world ${123}`);
+      if (ImGui.Button('Save')) {
+        console.log('Saved')
+        // do stuff
+      }
+      ImGui.InputText('string', (_ = buf) => buf = _, 256);
+      ImGui.SliderFloat('float', (_ = f) => f = _, 0.0, 1.0);
+      ImGui.ColorEdit4('clear color', clear_color);
+      ImGui.End();
+      ImGui.EndFrame();
+      ImGui.Render();
+
+      gl.clearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+      gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT ); //gl.clear(gl.COLOR_BUFFER_BIT);
+
+      // gl.color3f(5.0, 7.0, 4.0);  //some colour
+
+      //IMGUI========================================
+      var draw_data = ImGui.GetDrawData(); if (draw_data === null) throw new Error("No Image Data");
+        // We are using the OpenGL fixed pipeline to make the example code simpler to read!
+        // Setup render state: alpha-blending enabled, no face culling, no depth testing, scissor enabled, vertex/texcoord/color pointers, polygon fill.
+        // glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_TRANSFORM_BIT);
+        gl.enable(gl.BLEND);
+        // glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        gl.disable(gl.CULL_FACE);
+        gl.disable(gl.DEPTH_TEST);
+        gl.disable(gl.LIGHTING);
+        gl.disable(gl.COLOR_MATERIAL);
+        gl.enable(gl.SCISSOR_TEST);
+        gl.enableClientState(gl.VERTEX_ARRAY);
+        gl.enableClientState(gl.TEXTURE_COORD_ARRAY);
+        gl.enableClientState(gl.COLOR_ARRAY);
+        gl.enable(gl.TEXTURE_2D);
+        gl.polygonMode(gl.FRONT_AND_BACK, gl.FILL);
+
+        // Setup viewport, orthographic projection matrix
+        // Our visible imgui space lies from draw_data->DisplayPos (top left) to draw_data->DisplayPos+data_data->DisplaySize (bottom right). DisplayMin is typically (0,0) for single viewport apps.
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.matrixMode(gl.PROJECTION);
+        gl.pushMatrix();
+        gl.loadIdentity();
+                        const LEFT = draw_data.DisplayPos.x;
+                        const RIGHT = draw_data.DisplayPos.x + draw_data.DisplaySize.x;
+                        const TOP = draw_data.DisplayPos.y;
+                        const BOTTOM = draw_data.DisplayPos.y + draw_data.DisplaySize.y;
+                        const NEAR = -1.0;
+                        const FAR = 1.0;
+        gl.ortho(LEFT, RIGHT, TOP, BOTTOM, NEAR, FAR);
+        gl.matrixMode(gl.MODELVIEW);
+        gl.pushMatrix();
+        gl.loadIdentity();
+
+        const idx_buffer_type = gl && ((ImGui.ImDrawIdxSize === 4) ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT) || 0;
+        draw_data.IterateDrawLists((draw_list) => {
+            if(!draw_list) return console.log("Nothing to Draw ..."); 
+            const vtx_buffer = draw_list.VtxBuffer.buffer;  //.Data
+            const idx_buffer = draw_list.IdxBuffer.buffer;  //.Data  
+            let idx_buffer_offset = 0;
+
+            // Render command lists
+            draw_list.IterateDrawCmds((draw_cmd) => {
+
+                // console.log("ElemCount", draw_cmd.ElemCount);
+                // console.log("TextureId", draw_cmd.TextureId);
+                // console.log("i: pos.x pos.y uv.x uv.y col");
+                for (let i = 0; i < Math.min(3, draw_cmd.ElemCount); ++i) {
+                    const view = new ImGui.ImDrawVert(draw_list.VtxBuffer.buffer, draw_list.VtxBuffer.byteOffset + i * ImGui.ImDrawVertSize);
+                    // console.log(`${i}: ${view.pos[0].toFixed(2)} ${view.pos[1].toFixed(2)} ${view.uv[0].toFixed(5)} ${view.uv[1].toFixed(5)} ${("00000000" + view.col[0].toString(16)).substr(-8)}`);
+                    
+                    const ImDrawVertSize = 20;
+                    const ImDrawVertPosOffset = 0;
+                    const ImDrawVertUVOffset = 8;
+                    const ImDrawVertColOffset = 16;
+                    const vtxOffset = draw_list.VtxBuffer.byteOffset;
+                    gl.vertexPointer(2, gl.FLOAT, 0, new Float32Array(vtx_buffer, vtxOffset + ImDrawVertSize * i + ImDrawVertPosOffset, 2)); //pos 
+                    gl.texCoordPointer(2, gl.FLOAT, 0, new Float32Array(vtx_buffer, vtxOffset + ImDrawVertSize * i + ImDrawVertUVOffset, 2)); //uv
+                    gl.colorPointer(4, gl.FLOAT, 0, new Float32Array([0.8, 0.7, 0.8, 1.0])) //new Float32Array(vtx_buffer, vtxOffset + ImDrawVertSize * i + ImDrawVertColOffset, 4)); //col
+                }
+
+
+                    // Project scissor/clipping rectangles into framebuffer space
+                    const clip_rect = new ImGui.ImVec4(draw_cmd.ClipRect.x, draw_cmd.ClipRect.y, draw_cmd.ClipRect.z, draw_cmd.ClipRect.w);
+
+                    if (clip_rect.x < gl.width && clip_rect.y < gl.height && clip_rect.z >= 0.0 && clip_rect.w >= 0.0) {
+                        // Apply scissor/clipping rectangle TODO: No glScissor available in tinyGL
+                        //glScissor((int)clip_rect.x, (int)(fb_height - clip_rect.w), (int)(clip_rect.z - clip_rect.x), (int)(clip_rect.w - clip_rect.y));
+
+                        // Bind texture, Draw
+                        gl.bindTexture(gl.TEXTURE_2D, draw_cmd.TextureId);
+                        gl.drawElements(gl.TRIANGLES, draw_cmd.ElemCount, idx_buffer_type, idx_buffer_offset);
+                }
+                idx_buffer_offset += draw_cmd.ElemCount * ImGui.ImDrawIdxSize;
+            })
+        })
+            
+        // // Restore modified state
+        gl.disableClientState(gl.COLOR_ARRAY);
+        gl.disableClientState(gl.TEXTURE_COORD_ARRAY);
+        gl.disableClientState(gl.VERTEX_ARRAY);
+        gl.bindTexture(gl.TEXTURE_2D, gl.TEXTURE_BINDING_2D);
+        gl.matrixMode(gl.MODELVIEW);
+        gl.popMatrix();
+        gl.matrixMode(gl.PROJECTION);
+        gl.popMatrix();
+        // glPopAttrib();
+        gl.polygonMode(gl.FRONT_AND_BACK, gl.FILL);
+
+      gl.swapBuffers();           //Ready for next frame
+      // console.log("Frame Finished Drawing!")
+    }
+    //===========================================================End Loop
+    //init
+    gl.enable(gl.DEPTH_TEST);            
+    // Setup texturing 
+    gl.texEnvi(gl.TEXTURE_ENV, gl.TEXTURE_ENV_MODE, gl.DECAL);
+    gl.hint(gl.PERSPECTIVE_CORRECTION_HINT, gl.FASTEST);
+    //reshape
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.matrixMode(gl.PROJECTION);
+    gl.loadIdentity();
+    gl.frustum(-2.0, 2.0, -2.0, 2.0, 6.0, 20.0);
+    gl.matrixMode(gl.MODELVIEW);
+    gl.loadIdentity();
+    gl.translatef(0.0, 0.0, -8.0);
+
+    function tick() {
+      draw();
+      setTimeout(window.done ? experiment_over: tick, 33/* 30 fps is required */);
+    }
+    //run
+    tick();
+
+    function experiment_over() {
+      ImGui.DestroyContext();
+      console.log("Experiment Finished!") 
+    }
+</script>
